@@ -42,10 +42,6 @@
 #include <sys/syscall.h>
 #include <string.h>
 
-#ifndef RS_SERVER
-#include <cutils/properties.h>
-#endif
-
 using namespace android;
 using namespace android::renderscript;
 
@@ -89,10 +85,10 @@ static RsdHalFunctions FunctionTable = {
     {
         rsdAllocationInit,
         rsdAllocationDestroy,
+        rsdAllocationGrallocBits,
         rsdAllocationResize,
         rsdAllocationSyncAll,
         rsdAllocationMarkDirty,
-        NATIVE_FUNC(rsdAllocationGetSurface),
         NATIVE_FUNC(rsdAllocationSetSurface),
         NATIVE_FUNC(rsdAllocationIoSend),
         NATIVE_FUNC(rsdAllocationIoReceive),

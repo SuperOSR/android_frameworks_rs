@@ -47,8 +47,10 @@ class FBOCache;
 
 typedef void *(*RsHalSymbolLookupFunc)(void *usrptr, char const *symbolName);
 
+#ifdef TARGET_BOARD_FIBER
 /* External C library interface for rsdHalInit call. */
 typedef bool (*RsHalInitFunc)(RsContext context, uint32_t version_major, uint32_t version_minor);
+#endif
 
 typedef struct {
     const void *in;
@@ -148,15 +150,23 @@ typedef struct {
     struct {
         bool (*init)(const Context *rsc, Allocation *alloc, bool forceZero);
         void (*destroy)(const Context *rsc, Allocation *alloc);
+        uint32_t (*grallocBits)(const Context *rsc, Allocation *alloc);
 
         void (*resize)(const Context *rsc, const Allocation *alloc, const Type *newType,
                        bool zeroNew);
         void (*syncAll)(const Context *rsc, const Allocation *alloc, RsAllocationUsageType src);
         void (*markDirty)(const Context *rsc, const Allocation *alloc);
 
-        void * (*getSurface)(const Context *rsc, const Allocation *alloc);
         void (*setSurface)(const Context *rsc, Allocation *alloc, ANativeWindow *sur);
         void (*ioSend)(const Context *rsc, Allocation *alloc);
+
+        /**
+         * A new gralloc buffer is in use. The pointers and strides in
+         * mHal.drvState.lod[0-2] will be updated with the new values.
+         *
+         * The new gralloc handle is provided in mHal.state.nativeBuffer
+         *
+         */
         void (*ioReceive)(const Context *rsc, Allocation *alloc);
 
         void (*data1D)(const Context *rsc, const Allocation *alloc,

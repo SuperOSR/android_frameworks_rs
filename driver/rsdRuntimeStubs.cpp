@@ -84,6 +84,10 @@ OPAQUETYPE(rs_script)
 OPAQUETYPE(rs_script_call)
 #undef OPAQUETYPE
 
+typedef enum {
+    // Empty to avoid conflicting definitions with RsAllocationCubemapFace
+} rs_allocation_cubemap_face;
+
 typedef struct {
     int tm_sec;     ///< seconds
     int tm_min;     ///< minutes
@@ -138,19 +142,18 @@ static void SC_AllocationCopy2DRange(Allocation *dstAlloc,
                              srcXoff, srcYoff, srcMip, srcFace);
 }
 
-#ifndef RS_COMPATIBILITY_LIB
 static void SC_AllocationIoSend(Allocation *alloc) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsdAllocationIoSend(rsc, alloc);
+    rsrAllocationIoSend(rsc, alloc);
 }
 
 
 static void SC_AllocationIoReceive(Allocation *alloc) {
     Context *rsc = RsdCpuReference::getTlsContext();
-    rsdAllocationIoReceive(rsc, alloc);
+    rsrAllocationIoReceive(rsc, alloc);
 }
 
-
+#ifndef RS_COMPATIBILITY_LIB
 
 //////////////////////////////////////////////////////////////////////////////
 // Context
@@ -536,7 +539,7 @@ int64_t SC_UptimeNanos() {
 // Message routines
 //////////////////////////////////////////////////////////////////////////////
 
-static uint32_t SC_ToClient2(int cmdID, void *data, int len) {
+static uint32_t SC_ToClient2(int cmdID, const void *data, uint32_t len) {
     Context *rsc = RsdCpuReference::getTlsContext();
     return rsrToClient(rsc, cmdID, data, len);
 }
@@ -546,7 +549,7 @@ static uint32_t SC_ToClient(int cmdID) {
     return rsrToClient(rsc, cmdID, NULL, 0);
 }
 
-static uint32_t SC_ToClientBlocking2(int cmdID, void *data, int len) {
+static uint32_t SC_ToClientBlocking2(int cmdID, const void *data, uint32_t len) {
     Context *rsc = RsdCpuReference::getTlsContext();
     return rsrToClientBlocking(rsc, cmdID, data, len);
 }
@@ -1222,27 +1225,58 @@ static RsdCpuReference::CpuSymbol gSyms[] = {
 // Compatibility Library entry points
 //////////////////////////////////////////////////////////////////////////////
 
-bool rsIsObject(rs_element src) {
-    return SC_IsObject((ObjectBase*)src.p);
-}
-
-#define CLEAR_SET_OBJ(t) \
+#define IS_CLEAR_SET_OBJ(t) \
+    bool rsIsObject(t src) { \
+        return SC_IsObject((ObjectBase*)src.p); \
+    } \
     void __attribute__((overloadable)) rsClearObject(t *dst) { \
-    return SC_ClearObject((ObjectBase**) dst); \
+        return SC_ClearObject((ObjectBase**) dst); \
     } \
     void __attribute__((overloadable)) rsSetObject(t *dst, t src) { \
-    return SC_SetObject((ObjectBase**) dst, (ObjectBase*) src.p); \
+        return SC_SetObject((ObjectBase**) dst, (ObjectBase*) src.p); \
     }
 
-CLEAR_SET_OBJ(rs_element)
-CLEAR_SET_OBJ(rs_type)
-CLEAR_SET_OBJ(rs_allocation)
-CLEAR_SET_OBJ(rs_sampler)
-CLEAR_SET_OBJ(rs_script)
-#undef CLEAR_SET_OBJ
+IS_CLEAR_SET_OBJ(rs_element)
+IS_CLEAR_SET_OBJ(rs_type)
+IS_CLEAR_SET_OBJ(rs_allocation)
+IS_CLEAR_SET_OBJ(rs_sampler)
+IS_CLEAR_SET_OBJ(rs_script)
+#undef IS_CLEAR_SET_OBJ
 
 const Allocation * rsGetAllocation(const void *ptr) {
     return SC_GetAllocation(ptr);
+}
+
+void __attribute__((overloadable)) rsAllocationIoSend(rs_allocation a) {
+    SC_AllocationIoSend((Allocation *)a.p);
+}
+
+void __attribute__((overloadable)) rsAllocationIoReceive(rs_allocation a) {
+    SC_AllocationIoReceive((Allocation *)a.p);
+}
+
+
+void __attribute__((overloadable)) rsAllocationCopy1DRange(
+        rs_allocation dstAlloc,
+        uint32_t dstOff, uint32_t dstMip, uint32_t count,
+        rs_allocation srcAlloc,
+        uint32_t srcOff, uint32_t srcMip) {
+    SC_AllocationCopy1DRange((Allocation *)dstAlloc.p, dstOff, dstMip, count,
+                             (Allocation *)srcAlloc.p, srcOff, srcMip);
+}
+
+void __attribute__((overloadable)) rsAllocationCopy2DRange(
+        rs_allocation dstAlloc,
+        uint32_t dstXoff, uint32_t dstYoff,
+        uint32_t dstMip, rs_allocation_cubemap_face dstFace,
+        uint32_t width, uint32_t height,
+        rs_allocation srcAlloc,
+        uint32_t srcXoff, uint32_t srcYoff,
+        uint32_t srcMip, rs_allocation_cubemap_face srcFace) {
+    SC_AllocationCopy2DRange((Allocation *)dstAlloc.p, dstXoff, dstYoff,
+                             dstMip, dstFace, width, height,
+                             (Allocation *)srcAlloc.p, srcXoff, srcYoff,
+                             srcMip, srcFace);
 }
 
 void __attribute__((overloadable)) rsForEach(rs_script script,
@@ -1251,6 +1285,20 @@ void __attribute__((overloadable)) rsForEach(rs_script script,
                                              const void *usr,
                                              const rs_script_call *call) {
     return SC_ForEach_SAAUS((Script *)script.p, (Allocation*)in.p, (Allocation*)out.p, usr, (RsScriptCall*)call);
+}
+
+void __attribute__((overloadable)) rsForEach(rs_script script,
+                                             rs_allocation in,
+                                             rs_allocation out) {
+    return SC_ForEach_SAA((Script *)script.p, (Allocation*)in.p, (Allocation*)out.p);
+}
+
+void __attribute__((overloadable)) rsForEach(rs_script script,
+                                             rs_allocation in,
+                                             rs_allocation out,
+                                             const void *usr,
+                                             uint32_t usrLen) {
+    return SC_ForEach_SAAUL((Script *)script.p, (Allocation*)in.p, (Allocation*)out.p, usr, usrLen);
 }
 
 void __attribute__((overloadable)) rsForEach(rs_script script,
@@ -1275,14 +1323,20 @@ int64_t rsUptimeMillis() {
     return rsrUptimeMillis(rsc);
 }
 
-uint32_t rsSendToClientBlocking2(int cmdID, void *data, int len) {
-    Context *rsc = RsdCpuReference::getTlsContext();
-    return rsrToClientBlocking(rsc, cmdID, data, len);
+uint32_t rsSendToClient(int cmdID) {
+    return SC_ToClient(cmdID);
+}
+
+uint32_t rsSendToClient(int cmdID, const void *data, uint32_t len) {
+    return SC_ToClient2(cmdID, data, len);
 }
 
 uint32_t rsSendToClientBlocking(int cmdID) {
-    Context *rsc = RsdCpuReference::getTlsContext();
-    return rsrToClientBlocking(rsc, cmdID, NULL, 0);
+    return SC_ToClientBlocking(cmdID);
+}
+
+uint32_t rsSendToClientBlocking(int cmdID, const void *data, uint32_t len) {
+    return SC_ToClientBlocking2(cmdID, data, len);
 }
 
 static void SC_debugF(const char *s, float f) {

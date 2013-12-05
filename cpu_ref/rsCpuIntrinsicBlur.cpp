@@ -155,14 +155,16 @@ static void OneVFU4(float4 *out,
                     const uchar *ptrIn, int iStride, const float* gPtr, int ct,
                     int x1, int x2) {
 
-#if defined(ARCH_ARM_HAVE_NEON)
-    {
+#if defined(ARCH_ARM_HAVE_VFP)
+    if (gArchUseSIMD) {
         int t = (x2 - x1);
         t &= ~1;
         if(t) {
             rsdIntrinsicBlurVFU4_K(out, ptrIn, iStride, gPtr, ct, x1, x1 + t);
+            x1 += t;
+            ptrIn += t << 2;
+            out += t;
         }
-        x1 += t;
     }
 #endif
 
@@ -207,8 +209,8 @@ static void OneVFU1(float *out,
         len--;
     }
 
-#if defined(ARCH_ARM_HAVE_NEON)
-    if (x2 > x1) {
+#if defined(ARCH_ARM_HAVE_VFP)
+    if (gArchUseSIMD && (x2 > x1)) {
         int t = (x2 - x1) >> 2;
         t &= ~1;
         if(t) {
@@ -289,10 +291,12 @@ void RsdCpuScriptIntrinsicBlur::kernelU4(const RsForEachStubParamStruct *p,
 
     if (p->dimX > 2048) {
         if ((p->dimX > cp->mScratchSize[p->lid]) || !cp->mScratch[p->lid]) {
-            cp->mScratch[p->lid] = realloc(cp->mScratch[p->lid], p->dimX * 16);
+            // Pad the side of the allocation by one unit to allow alignment later
+            cp->mScratch[p->lid] = realloc(cp->mScratch[p->lid], (p->dimX + 1) * 16);
             cp->mScratchSize[p->lid] = p->dimX;
         }
-        buf = (float4 *)cp->mScratch[p->lid];
+        // realloc only aligns to 8 bytes so we manually align to 16.
+        buf = (float4 *) ((((intptr_t)cp->mScratch[p->lid]) + 15) & ~0xf);
     }
     float4 *fout = (float4 *)buf;
     int y = p->y;
@@ -313,12 +317,14 @@ void RsdCpuScriptIntrinsicBlur::kernelU4(const RsForEachStubParamStruct *p,
         out++;
         x1++;
     }
-#if defined(ARCH_ARM_HAVE_NEON)
-    if ((x1 + cp->mIradius) < x2) {
-        rsdIntrinsicBlurHFU4_K(out, buf - cp->mIradius, cp->mFp,
-                               cp->mIradius * 2 + 1, x1, x2 - cp->mIradius);
-        out += (x2 - cp->mIradius) - x1;
-        x1 = x2 - cp->mIradius;
+#if defined(ARCH_ARM_HAVE_VFP)
+    if (gArchUseSIMD) {
+        if ((x1 + cp->mIradius) < x2) {
+            rsdIntrinsicBlurHFU4_K(out, buf - cp->mIradius, cp->mFp,
+                                   cp->mIradius * 2 + 1, x1, x2 - cp->mIradius);
+            out += (x2 - cp->mIradius) - x1;
+            x1 = x2 - cp->mIradius;
+        }
     }
 #endif
     while(x2 > x1) {
@@ -364,15 +370,17 @@ void RsdCpuScriptIntrinsicBlur::kernelU1(const RsForEachStubParamStruct *p,
         out++;
         x1++;
     }
-#if defined(ARCH_ARM_HAVE_NEON)
-    if ((x1 + cp->mIradius) < x2) {
-        uint32_t len = x2 - (x1 + cp->mIradius);
-        len &= ~3;
-        if (len > 0) {
-            rsdIntrinsicBlurHFU1_K(out, ((float *)buf) - cp->mIradius, cp->mFp,
-                                   cp->mIradius * 2 + 1, x1, x1 + len);
-            out += len;
-            x1 += len;
+#if defined(ARCH_ARM_HAVE_VFP)
+    if (gArchUseSIMD) {
+        if ((x1 + cp->mIradius) < x2) {
+            uint32_t len = x2 - (x1 + cp->mIradius);
+            len &= ~3;
+            if (len > 0) {
+                rsdIntrinsicBlurHFU1_K(out, ((float *)buf) - cp->mIradius, cp->mFp,
+                                       cp->mIradius * 2 + 1, x1, x1 + len);
+                out += len;
+                x1 += len;
+            }
         }
     }
 #endif
@@ -403,6 +411,8 @@ RsdCpuScriptIntrinsicBlur::RsdCpuScriptIntrinsicBlur(RsdCpuReferenceImpl *ctx,
 
     mScratch = new void *[mCtx->getThreadCount()];
     mScratchSize = new size_t[mCtx->getThreadCount()];
+    memset(mScratch, 0, sizeof(void *) * mCtx->getThreadCount());
+    memset(mScratchSize, 0, sizeof(size_t) * mCtx->getThreadCount());
 
     ComputeGaussianWeights();
 }

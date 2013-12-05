@@ -108,7 +108,11 @@ void rsrMeasureText(Context *, const char *text,
                     int32_t *left, int32_t *right, int32_t *top, int32_t *bottom);
 void rsrBindFont(Context *, Font *);
 void rsrFontColor(Context *, float r, float g, float b, float a);
+
 #endif
+
+void rsrAllocationIoSend(Context *, Allocation *);
+void rsrAllocationIoReceive(Context *, Allocation *);
 
 //////////////////////////////////////////////////////////////////////////////
 // Time routines
@@ -124,8 +128,8 @@ int64_t rsrUptimeNanos(Context *);
 // Message routines
 //////////////////////////////////////////////////////////////////////////////
 
-uint32_t rsrToClient(Context *, int cmdID, void *data, int len);
-uint32_t rsrToClientBlocking(Context *, int cmdID, void *data, int len);
+uint32_t rsrToClient(Context *, int cmdID, const void *data, int len);
+uint32_t rsrToClientBlocking(Context *, int cmdID, const void *data, int len);
 
 //////////////////////////////////////////////////////////////////////////////
 //

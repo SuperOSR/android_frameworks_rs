@@ -19,6 +19,7 @@
 
 #include "rsAllocation.h"
 
+#include <utility>
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -72,12 +73,14 @@ public:
             size_t exportedPragmaCount;
             char const **exportedPragmaKeyList;
             char const **exportedPragmaValueList;
+            const std::pair<const char *, uint32_t> *exportedForeachFuncList;
 
             int (* root)();
         };
         DriverInfo info;
-
+#ifdef TARGET_BOARD_FIBER
         void * IMGPrivateData;
+#endif
     };
     Hal mHal;
 
@@ -119,8 +122,13 @@ public:
     virtual void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) = 0;
     virtual void setupScript(Context *rsc) = 0;
     virtual uint32_t run(Context *) = 0;
+
+    bool hasObjectSlots() const {
+        return mHasObjectSlots;
+    }
 protected:
     bool mInitialized;
+    bool mHasObjectSlots;
     ObjectBaseRef<Allocation> *mSlots;
     ObjectBaseRef<const Type> *mTypes;
 

@@ -34,8 +34,13 @@
 #include <dlfcn.h>
 #include <unistd.h>
 
-#if !defined(RS_SERVER)
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && \
+        defined(HAVE_ANDROID_OS)
 #include <cutils/properties.h>
+#endif
+
+#ifdef RS_COMPATIBILITY_LIB
+#include "rsCompatibilityLib.h"
 #endif
 
 #ifdef RS_SERVER
@@ -52,6 +57,7 @@ pthread_mutex_t Context::gInitMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Context::gMessageMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Context::gLibMutex = PTHREAD_MUTEX_INITIALIZER;
 
+#ifdef TARGET_BOARD_FIBER
 /*
  * Load an external library and lookup the rsdHalInit function symbol.
  */
@@ -85,6 +91,7 @@ bool rsLoadExternalLibrary(void *vrsc, const char *pszLibName, void **phLib)
     ALOGD("Loaded external library \'%s\' successfully.",pszLibName);
     return true;
 }
+#endif
 
 bool Context::initGLThread() {
     pthread_mutex_lock(&gInitMutex);
@@ -239,7 +246,7 @@ void Context::setupProgramStore() {
 #endif
 
 static uint32_t getProp(const char *str) {
-#ifndef RS_SERVER
+#if !defined(RS_SERVER) && defined(HAVE_ANDROID_OS)
     char buf[PROPERTY_VALUE_MAX];
     property_get(str, buf, "0");
     return atoi(buf);
@@ -379,11 +386,13 @@ void * Context::threadProc(void *vrsc) {
     }
 #endif
 
+#ifdef TARGET_BOARD_FIBER
     ALOGD("Loading libPVRRS.so PowerVR Renderscript Driver");
     if (!rsLoadExternalLibrary(vrsc,"libPVRRS.so",&rsc->mLib))
     {
         ALOGE("Failed intializing PowerVR driver");
     }
+#endif
 
     rsc->mHal.funcs.setPriority(rsc, rsc->mThreadPriority);
 
@@ -543,7 +552,9 @@ Context::Context() {
     mTargetSdkVersion = 14;
     mDPI = 96;
     mIsContextLite = false;
+#ifdef TARGET_BOARD_FIBER
     mLib = NULL;
+#endif
     memset(&watchdog, 0, sizeof(watchdog));
     mForceCpu = false;
     mContextType = RS_CONTEXT_TYPE_NORMAL;
@@ -551,12 +562,15 @@ Context::Context() {
 }
 
 Context * Context::createContext(Device *dev, const RsSurfaceConfig *sc,
-                                 RsContextType ct, bool forceCpu,
-                                 bool synchronous) {
+                                 RsContextType ct, uint32_t flags) {
     Context * rsc = new Context();
 
-    rsc->mForceCpu = forceCpu;
-    rsc->mSynchronous = synchronous;
+    if (flags & RS_CONTEXT_LOW_LATENCY) {
+        rsc->mForceCpu = true;
+    }
+    if (flags & RS_CONTEXT_SYNCHRONOUS) {
+        rsc->mSynchronous = true;
+    }
     rsc->mContextType = ct;
 
     if (!rsc->initContext(dev, sc)) {
@@ -645,10 +659,12 @@ Context::~Context() {
         // Global structure cleanup.
         pthread_mutex_lock(&gInitMutex);
 
+#ifdef TARGET_BOARD_FIBER
         if (mLib) {
             dlclose(mLib);
             mLib = NULL;
         }
+#endif
 
         if (mDev) {
             mDev->removeContext(this);
@@ -914,7 +930,6 @@ void rsi_ContextDestroy(Context *rsc) {
     //ALOGV("%p rsContextDestroy done", rsc);
 }
 
-
 RsMessageToClientType rsi_ContextPeekMessage(Context *rsc,
                                            size_t * receiveLen, size_t receiveLen_length,
                                            uint32_t * subID, size_t subID_length) {
@@ -944,11 +959,11 @@ void rsi_ContextSendMessage(Context *rsc, uint32_t id, const uint8_t *data, size
 }
 }
 
-RsContext rsContextCreate(RsDevice vdev, uint32_t version, uint32_t sdkVersion,
-                          RsContextType ct, bool forceCpu, bool synchronous) {
+extern "C" RsContext rsContextCreate(RsDevice vdev, uint32_t version, uint32_t sdkVersion,
+                                     RsContextType ct, uint32_t flags) {
     //ALOGV("rsContextCreate dev=%p", vdev);
     Device * dev = static_cast<Device *>(vdev);
-    Context *rsc = Context::createContext(dev, NULL, ct, forceCpu, synchronous);
+    Context *rsc = Context::createContext(dev, NULL, ct, flags);
     if (rsc) {
         rsc->setTargetSdkVersion(sdkVersion);
     }
