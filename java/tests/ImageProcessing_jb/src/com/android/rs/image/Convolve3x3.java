@@ -24,6 +24,7 @@ import android.renderscript.Matrix4f;
 import android.renderscript.RenderScript;
 import android.renderscript.Script;
 import android.renderscript.ScriptC;
+import android.renderscript.ScriptGroup;
 import android.renderscript.ScriptIntrinsicConvolve3x3;
 import android.renderscript.Type;
 import android.util.Log;
@@ -63,11 +64,7 @@ public class Convolve3x3 extends TestBase {
     }
 
     public void runTest() {
-        if (mUseIntrinsic) {
-            mIntrinsic.forEach(mOutPixelsAllocation);
-        } else {
-            mScript.forEach_root(mOutPixelsAllocation);
-        }
+        mScript.forEach_root(mOutPixelsAllocation);
     }
 
 }

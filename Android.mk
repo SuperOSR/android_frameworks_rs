@@ -150,10 +150,6 @@ LOCAL_SRC_FILES:= \
 	rsThreadIO.cpp \
 	rsType.cpp
 
-ifeq ($(TARGET_BOARD_FIBER), fiber)
-	LOCAL_CFLAGS += -DTARGET_BOARD_FIBER
-endif
-
 LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2 libbcc
 LOCAL_SHARED_LIBRARIES += libui libbcinfo libLLVM libgui libsync libdl
 LOCAL_SHARED_LIBRARIES += libft2 libpng libz
@@ -244,10 +240,6 @@ LOCAL_SRC_FILES:= \
 	rsStream.cpp \
 	rsThreadIO.cpp \
 	rsType.cpp
-	
-ifeq ($(TARGET_BOARD_FIBER), fiber)
-	LOCAL_CFLAGS += -DTARGET_BOARD_FIBER
-endif
 
 LOCAL_STATIC_LIBRARIES := libcutils libutils liblog
 

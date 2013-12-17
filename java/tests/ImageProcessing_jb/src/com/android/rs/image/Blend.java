@@ -25,6 +25,7 @@ import android.renderscript.Matrix4f;
 import android.renderscript.RenderScript;
 import android.renderscript.Script;
 import android.renderscript.ScriptC;
+import android.renderscript.ScriptGroup;
 import android.renderscript.ScriptIntrinsicBlend;
 import android.renderscript.Type;
 import android.util.Log;

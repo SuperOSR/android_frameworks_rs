@@ -78,9 +78,6 @@ public:
             int (* root)();
         };
         DriverInfo info;
-#ifdef TARGET_BOARD_FIBER
-        void * IMGPrivateData;
-#endif
     };
     Hal mHal;
 

@@ -309,9 +309,6 @@ private:
     uint32_t mAverageFPSFrameCount;
     uint64_t mAverageFPSStartTime;
     uint32_t mAverageFPS;
-#ifdef TARGET_BOARD_FIBER
-    void    *mLib;
-#endif
 };
 
 } // renderscript

@@ -47,11 +47,6 @@ class FBOCache;
 
 typedef void *(*RsHalSymbolLookupFunc)(void *usrptr, char const *symbolName);
 
-#ifdef TARGET_BOARD_FIBER
-/* External C library interface for rsdHalInit call. */
-typedef bool (*RsHalInitFunc)(RsContext context, uint32_t version_major, uint32_t version_minor);
-#endif
-
 typedef struct {
     const void *in;
     void *out;

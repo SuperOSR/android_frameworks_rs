@@ -592,9 +592,9 @@ extern float __attribute__((overloadable)) rsqrt(float v) {
     return 1.f / sqrt(v);
 }
 
-#if !defined(__i386__)
+#if !defined(ARCH_X86_HAVE_SSE2) && !defined(ARCH_X86_HAVE_SSE3)
 FN_FUNC_FN(sqrt)
-#endif // !defined(__i386__)
+#endif // !defined(ARCH_X86_HAVE_SSE2) && !defined(ARCH_X86_HAVE_SSE3)
 
 FN_FUNC_FN(rsqrt)
 
@@ -902,7 +902,7 @@ extern float4 __attribute__((overloadable)) cross(float4 lhs, float4 rhs) {
     return r;
 }
 
-#if !defined(__i386__)
+#if !defined(ARCH_X86_HAVE_SSE3)
 
 extern float __attribute__((overloadable)) dot(float lhs, float rhs) {
     return lhs * rhs;

@@ -57,7 +57,6 @@ public class RSTestCore {
 
         unitTests = new ArrayList<UnitTest>();
 
-        unitTests.add(new UT_apitest(this, mRes, mCtx));
         unitTests.add(new UT_primitives(this, mRes, mCtx));
         unitTests.add(new UT_instance(this, mRes, mCtx));
         unitTests.add(new UT_constant(this, mRes, mCtx));
