@@ -90,7 +90,9 @@ public:
             } yuv;
         };
         mutable DrvState drvState;
-
+#ifdef TARGET_BOARD_FIBER
+        void * IMGPrivateData;
+#endif
     };
     Hal mHal;
 
